@@ -6,6 +6,7 @@ INSTALL
 =======
 	% make
 	cc -o vmwarectl -O vmwarectl.c vmport.c
+	% sudo cp vmwarectl /usr/local/bin
 
 
 HOW TO USE
