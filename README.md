@@ -4,8 +4,8 @@ vmwarectl - get vmware info and set mouse mode
 
 INSTALL
 =======
-% make
-cc -o vmwarectl -O vmwarectl.c vmport.c
+	% make
+	cc -o vmwarectl -O vmwarectl.c vmport.c
 
 
 HOW TO USE
