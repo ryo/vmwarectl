@@ -141,6 +141,11 @@ vmvcpu_pr(const char *name)
 	frame.ecx.word = VM_CMD_GET_VCPUINFO;
 	vm_portcmd(&frame);
 
+	if (frame.eax.word & (1 << VM_VCPUINFO_RESERVED)) {
+		printf("reserved");
+		return;
+	}
+
 	comma = "";
 	if (frame.eax.word & (1 << VM_VCPUINFO_SLC64)) {
 		printf("%sSLC64", comma);
