@@ -126,7 +126,7 @@ union vm_reg {
 		uint16_t high;
 	} part;
 	uint32_t word;
-#ifdef __amd64__
+#if defined(__amd64__) || defined(__aarch64__)
 	struct {
 		uint32_t low;
 		uint32_t high;

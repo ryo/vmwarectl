@@ -76,17 +76,53 @@
 		: "rbx", "rcx", "rdx", "rdi", "rsi", "cc", "memory" \
 	)
 
+#define X86_IO_MAGIC		0x86	/* magic for upper 32bit of x7 */
+#define X86_IO_W7_SIZE_MASK	__BITS(2, 0)
+#define X86_IO_W7_SIZE(n)	__SHIFTIN((n), X86_IO_W7_SIZE_MASK)
+#define X86_IO_W7_DIR		__BIT(2)
+#define X86_IO_W7_WITH		__BIT(3)
+#define X86_IO_W7_STR		__BIT(4)
+#define X86_IO_W7_DF		__BIT(5)
+#define X86_IO_W7_IMM_MASK	__BITS(12, 5)
+#define X86_IO_W7_IMM(imm)	__SHIFTIN((imm), X86_IO_W7_IMM_MASK)
 
-#ifdef __i386__
-#define BACKDOOR_OP(op, frame) BACKDOOR_OP_I386(op, frame)
+#define BACKDOOR_OP_AARCH64(op, frame)		\
+	__asm__ __volatile__ (			\
+		"ldp x0, x1, [%0, 8 * 0];	\n\t" \
+		"ldp x2, x3, [%0, 8 * 2];	\n\t" \
+		"ldp x4, x5, [%0, 8 * 4];	\n\t" \
+		"ldr x6,     [%0, 8 * 6];	\n\t" \
+		"mov x7, %1			\n\t" \
+		"movk x7, %2, lsl #32;		\n\t" \
+		"mrs xzr, mdccsr_el0;		\n\t" \
+		"stp x0, x1, [%0, 8 * 0];	\n\t" \
+		"stp x2, x3, [%0, 8 * 2];	\n\t" \
+		"stp x4, x5, [%0, 8 * 4];	\n\t" \
+		"str x6,     [%0, 8 * 6];	\n\t" \
+		: \
+		: "r" (frame), \
+		  "r" (op), \
+		  "i" (X86_IO_MAGIC) \
+		: "x0", "x1", "x2", "x3", "x4", "x5", "x6", "x7", "memory" \
+	)
+
+#if defined(__i386__)
+#define BACKDOOR_OP(frame) BACKDOOR_OP_I386("inl %%dx, %%eax;", frame)
+#elif defined(__amd64__)
+#define BACKDOOR_OP(frame) BACKDOOR_OP_AMD64("inl %%dx, %%eax;", frame)
+#elif defined(__aarch64__)
+#define OP_AARCH64_IO	(X86_IO_W7_WITH | X86_IO_W7_DIR | X86_IO_W7_SIZE(2))
+#define OP_AARCH64_IN	(X86_IO_W7_WITH | X86_IO_W7_STR | X86_IO_W7_DIR)
+#define OP_AARCH64_OUT	(X86_IO_W7_WITH | X86_IO_W7_STR)
+#define BACKDOOR_OP(frame) BACKDOOR_OP_AARCH64(OP_AARCH64_IO, frame)
 #else
-#define BACKDOOR_OP(op, frame) BACKDOOR_OP_AMD64(op, frame)
+#error no BACKDOOR opcode in this arch
 #endif
 
 void
 vm_cmd(struct vm_backdoor *frame)
 {
-	BACKDOOR_OP("inl %%dx, %%eax;", frame);
+	BACKDOOR_OP(frame);
 }
 
 void
@@ -108,9 +144,9 @@ vm_probe(void)
 	frame.ecx.part.high = 0xffff;
 	vm_portcmd(&frame);
 
-	if (frame.ebx.word != VM_MAGIC ||
-	    frame.eax.word == 0xffffffff)
-		return -1;
+	if (frame.ebx.word == VM_MAGIC &&
+	    frame.eax.word != 0xffffffff)
+		return 0;
 
-	return 0;
+	return -1;
 }
